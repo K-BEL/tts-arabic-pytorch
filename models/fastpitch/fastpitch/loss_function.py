@@ -78,8 +78,12 @@ class FastPitchLoss(nn.Module):
         ldiff = mel_tgt.size(1) - mel_out.size(1)
         mel_out = F.pad(mel_out, (0, 0, 0, ldiff, 0, 0), value=0.0)
         mel_mask = mel_tgt.ne(0).float()
-        loss_fn = F.mse_loss
-        mel_loss = loss_fn(mel_out, mel_tgt, reduction='none')
+        
+        # Hybrid L1 + MSE loss for sharper spectrograms (OmniVoice/FastSpeech2 style)
+        mel_loss_mse = F.mse_loss(mel_out, mel_tgt, reduction='none')
+        mel_loss_l1 = F.l1_loss(mel_out, mel_tgt, reduction='none')
+        mel_loss = (mel_loss_mse + mel_loss_l1) * 0.5
+        
         mel_loss = (mel_loss * mel_mask).sum() / mel_mask.sum()
 
         ldiff = pitch_tgt.size(2) - pitch_pred.size(2)
